@@ -1,2 +1,3 @@
-# ai_form
-Real-time exercise form correction using pose estimation and deep learning. Built with Python, Keras, and MediaPipe.
+## 🌐 [View Live Project Page](https://kayasmus.github.io/ai_form/)
+
+[![AI Form Live Page](images/banner.png)](https://kayasmus.github.io/ai_form/)

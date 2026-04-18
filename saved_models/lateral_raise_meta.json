@@ -22,5 +22,9 @@
     "right_wrist_above_shoulder_good"
   ],
   "input_dim": 8,
-  "output_dim": 8
+  "output_dim": 8,
+  "training_samples": 8228,
+  "real_samples": 974,
+  "synthetic_samples": 6280,
+  "identity_samples": 974
 }

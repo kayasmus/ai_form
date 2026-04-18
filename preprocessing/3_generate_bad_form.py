@@ -17,7 +17,7 @@ from pathlib import Path
 # ── Config ─────────────────────────────────────────────────────────────────────
 INPUT_CSV  = str(Path(__file__).parent / "paired_data.csv")
 OUTPUT_CSV = str(Path(__file__).parent / "synthetic_paired_data.csv")
-VARIANTS_PER_FRAME = 3
+VARIANTS_PER_FRAME = 5
 RANDOM_SEED = 42
 OUTLIER_DELTA = 40.0  # filter out synthetic pairs where delta > this
 
@@ -73,6 +73,16 @@ LATERAL_RAISE_MISTAKES = [
             "right_arm_raise": (-10.0, 5.0),
             "arm_symmetry":    (20.0, 5.0),
         }
+    },
+    {
+    "name": "bad_posture_good_arms",
+    "description": "Torso and elbow issues but arm height correct",
+    "perturbations": {
+        "torso_lean":        (10.0, 4.0),
+        "left_elbow_angle":  (-20.0, 8.0),
+        "right_elbow_angle": (-20.0, 8.0),
+        "arm_symmetry":      (10.0, 4.0),
+    }
     },
 ]
 

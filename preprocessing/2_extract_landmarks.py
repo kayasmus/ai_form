@@ -238,7 +238,7 @@ def process_directory(video_dir, output_csv="angles.csv", frame_skip=1):
 # ══════════════════════════════════════════════════════════════════════════════
 
 process_directory(
-    video_dir="videos",
+    video_dir="/Users/mauriceengel/code/ai_form/video_files",
     output_csv=str(Path(__file__).parent / "new_angles.csv"),
     frame_skip=1
 )

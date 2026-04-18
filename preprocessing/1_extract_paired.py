@@ -25,7 +25,7 @@ LM = mp_pose.PoseLandmark
 BASE_DIR   = Path(__file__).parent.parent  # final_models/
 VIDEO_DIR  = BASE_DIR / "videos"
 OUTPUT_CSV = Path(__file__).parent / "paired_data.csv"
-FRAME_SKIP  = 3
+FRAME_SKIP  = 1
 
 LATERAL_RAISE_FEATURES = [
     "left_arm_raise",
@@ -111,7 +111,7 @@ def is_active(features):
 # VIDEO PROCESSOR
 # ══════════════════════════════════════════════════════════════════════════════
 
-def extract_frames(video_path, frame_skip=3):
+def extract_frames(video_path, frame_skip=1):
     """
     Run MediaPipe on a single video and extract angles from active frames.
 
@@ -214,7 +214,7 @@ def find_pairs(video_dir):
 # PAIR PROCESSING
 # ══════════════════════════════════════════════════════════════════════════════
 
-def process_pair(pair_num, bad_path, good_path, frame_skip=3):
+def process_pair(pair_num, bad_path, good_path, frame_skip=1):
     """
     Extract frames from one bad/good pair.
 

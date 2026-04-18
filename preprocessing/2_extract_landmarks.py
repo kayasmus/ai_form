@@ -120,7 +120,7 @@ EXERCISE_CONFIG = {
 # VIDEO PROCESSOR
 # ══════════════════════════════════════════════════════════════════════════════
 
-def process_video(video_path, exercise, frame_skip=3):
+def process_video(video_path, exercise, frame_skip=1):
     """
     Run MediaPipe on a single video. Extract angles from active frames only.
 
@@ -181,7 +181,7 @@ def process_video(video_path, exercise, frame_skip=3):
     return rows
 
 
-def process_directory(video_dir, output_csv="angles.csv", frame_skip=3):
+def process_directory(video_dir, output_csv="angles.csv", frame_skip=1):
     """
     Walk the video directory, process all supported exercises, save CSV.
     """
@@ -238,7 +238,7 @@ def process_directory(video_dir, output_csv="angles.csv", frame_skip=3):
 # ══════════════════════════════════════════════════════════════════════════════
 
 process_directory(
-    video_dir="/Users/mauriceengel/code/saintlouisleetokyowest-bot/ai_form/final_models_more_videos",
+    video_dir="videos",
     output_csv=str(Path(__file__).parent / "new_angles.csv"),
-    frame_skip=3
+    frame_skip=1
 )

@@ -1,0 +1,25 @@
+video_files/
+
+# Mac system files
+.DS_Store
+**/.DS_Store
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.MOV
+
+# Large data files
+*.csv
+*.npy
+
+# Model files
+*.keras
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env

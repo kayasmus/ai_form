@@ -189,11 +189,12 @@ def score_form(features, meta, X_scaler, y_scaler, model):
     prediction = y_scaler.inverse_transform(prediction_scaled)[0]
     input_vals = np.array([features[f] for f in feature_cols])
     errors    = np.abs(input_vals - prediction)
-    max_error = float(np.max(errors))
-    score     = max(0.0, 100.0 * (1.0 - max_error / 60.0))
+    max_error  = float(np.max(errors))
+    mean_error = float(np.mean(errors))
+    score      = max(0.0, 100.0 * (1.0 - mean_error / 30.0))
 
 
-    return score, max_error, prediction, feature_cols
+    return score, mean_error, prediction, feature_cols
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -228,7 +229,6 @@ def get_fault_text(features, prediction, feature_cols):
 # ══════════════════════════════════════════════════════════════════════════════
 # GHOST SKELETON
 # ══════════════════════════════════════════════════════════════════════════════
-
 def reconstruction_to_landmarks(prediction, feature_cols, actual_landmarks):
     ideal = dict(zip(feature_cols, prediction))
 
@@ -238,36 +238,34 @@ def reconstruction_to_landmarks(prediction, feature_cols, actual_landmarks):
 
     ghost = {lm_enum: lm_xy(lm_enum) for lm_enum in LM}
 
-    for side, shoulder_lm, elbow_lm, wrist_lm, hip_lm in [
-        ("left",  LM.LEFT_SHOULDER,  LM.LEFT_ELBOW,  LM.LEFT_WRIST,  LM.LEFT_HIP),
-        ("right", LM.RIGHT_SHOULDER, LM.RIGHT_ELBOW, LM.RIGHT_WRIST, LM.RIGHT_HIP),
+    for side, shoulder_lm, elbow_lm, wrist_lm in [
+        ("left",  LM.LEFT_SHOULDER,  LM.LEFT_ELBOW,  LM.LEFT_WRIST),
+        ("right", LM.RIGHT_SHOULDER, LM.RIGHT_ELBOW, LM.RIGHT_WRIST),
     ]:
-        shoulder_pos  = lm_xy(shoulder_lm)
-        hip_pos       = lm_xy(hip_lm)
-        actual_elbow  = lm_xy(elbow_lm)
-        actual_wrist  = lm_xy(wrist_lm)
+        shoulder_pos = lm_xy(shoulder_lm)
+        actual_elbow = lm_xy(elbow_lm)
+        actual_wrist = lm_xy(wrist_lm)
         upper_arm_len = np.linalg.norm(actual_elbow - shoulder_pos)
         forearm_len   = np.linalg.norm(actual_wrist - actual_elbow)
-        ideal_raise       = float(np.clip(ideal.get(f"{side}_arm_raise", 90.0), 30.0, 150.0))
-        ideal_elbow_angle = float(np.clip(ideal.get(f"{side}_elbow_angle", 160.0), 90.0, 180.0))
-        torso_vec = hip_pos - shoulder_pos
-        torso_dir = torso_vec / (np.linalg.norm(torso_vec) + 1e-6)
-        raise_rad = np.radians(ideal_raise)
-        sign      = 1 if side == "left" else -1
-        raise_rad = np.radians(ideal_raise) * sign          # flip angle for right side
-        cos_r, sin_r = np.cos(raise_rad), np.sin(raise_rad)
-        rot  = np.array([[cos_r, -sin_r], [sin_r, cos_r]])  # standard rotation matrix
-        upper_arm_dir   = rot @ (-torso_dir)
-        ideal_elbow_pos = shoulder_pos + upper_arm_len * upper_arm_dir
-        elbow_bend_rad  = np.radians(180.0 - ideal_elbow_angle)
-        cos_e, sin_e    = np.cos(elbow_bend_rad), np.sin(elbow_bend_rad)
-        rot2            = np.array([[cos_e, -sin_e], [sin_e, cos_e]])
-        forearm_dir     = rot2 @ upper_arm_dir
-        ideal_wrist_pos = ideal_elbow_pos + forearm_len * forearm_dir
-        ghost[shoulder_lm] = shoulder_pos
-        ghost[hip_lm]      = hip_pos
-        ghost[elbow_lm]    = np.clip(ideal_elbow_pos, 0.0, 1.0)
-        ghost[wrist_lm]    = np.clip(ideal_wrist_pos, 0.0, 1.0)
+
+        ideal_raise = float(np.clip(ideal.get(f"{side}_arm_raise", 90.0), 45.0, 110.0))
+
+        # In image coords: 0° = straight down, 90° = horizontal
+        # Left arm goes left (-x), right arm goes right (+x)
+        angle_from_horizontal = np.radians(ideal_raise - 90.0)
+        sign = 1 if side == "left" else -1
+
+        arm_dir = np.array([
+            sign * np.cos(angle_from_horizontal),
+            -np.sin(angle_from_horizontal)  # negative = up in image space
+        ])
+        arm_dir = arm_dir / (np.linalg.norm(arm_dir) + 1e-6)
+
+        ideal_elbow_pos = shoulder_pos + upper_arm_len * arm_dir
+        ideal_wrist_pos = ideal_elbow_pos + forearm_len * arm_dir
+
+        ghost[elbow_lm] = np.clip(ideal_elbow_pos, 0.0, 1.0)
+        ghost[wrist_lm] = np.clip(ideal_wrist_pos, 0.0, 1.0)
 
     return ghost
 

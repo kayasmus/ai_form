@@ -23,7 +23,7 @@ app.add_middleware(
 
 MODELS_DIR = Path(__file__).parent / "models/maurice_model/saved_models"
 
-model = tf.keras.models.load_model(MODELS_DIR / "lateral_raise_supervised.keras", compile=False)
+model = tf.keras.models.load_model(str(MODELS_DIR / "lateral_raise_savedmodel"), compile=False)
 with open(MODELS_DIR / "lateral_raise_X_scaler.pkl", "rb") as f:
     X_scaler = pickle.load(f)
 with open(MODELS_DIR / "lateral_raise_y_scaler.pkl", "rb") as f:

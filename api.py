@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 import numpy as np
 import cv2
 import pickle
@@ -117,6 +117,79 @@ async def analyze(file: UploadFile = File(...)):
     score = max(0.0, 100.0 * (1.0 - float(np.mean(errors)) / 30.0))
     fault = get_fault(features, prediction)
     return {"detected": True, "score": round(score, 1), "fault": fault}
+
+@app.post("/annotated")
+async def annotated(file: UploadFile = File(...)):
+    contents = await file.read()
+    img = Image.open(io.BytesIO(contents)).convert("RGB")
+    frame = np.array(img)
+    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+    result = pose.process(frame)
+    if not result.pose_landmarks:
+        _, buffer = cv2.imencode('.jpg', frame_bgr)
+        return StreamingResponse(io.BytesIO(buffer.tobytes()), media_type="image/jpeg")
+
+    landmarks = result.pose_landmarks.landmark
+    features = extract_features(landmarks)
+    avg_raise = (features["left_arm_raise"] + features["right_arm_raise"]) / 2
+
+    if avg_raise < 30:
+        score = 100.0
+        fault = ""
+    else:
+        vec = np.array([[features[f] for f in FEATURE_LIST]], dtype=np.float32)
+        pred_scaled = model.predict(X_scaler.transform(vec), verbose=0)
+        prediction = y_scaler.inverse_transform(pred_scaled)[0]
+        errors = np.abs(np.array([features[f] for f in FEATURE_LIST]) - prediction)
+        score = max(0.0, 100.0 * (1.0 - float(np.mean(errors)) / 30.0))
+        fault = get_fault(features, prediction)
+
+    # Score color (BGR)
+    if score >= 70:
+        t = (100 - score) / 30.0
+        color = (0, 255, int(255 * t))
+    else:
+        t = score / 70.0
+        color = (0, int(255 * t), 255)
+
+    # Draw skeleton
+    h, w = frame_bgr.shape[:2]
+    CONNECTIONS = [
+        (mp_pose.PoseLandmark.LEFT_SHOULDER, mp_pose.PoseLandmark.RIGHT_SHOULDER),
+        (mp_pose.PoseLandmark.LEFT_SHOULDER, mp_pose.PoseLandmark.LEFT_ELBOW),
+        (mp_pose.PoseLandmark.LEFT_ELBOW, mp_pose.PoseLandmark.LEFT_WRIST),
+        (mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_ELBOW),
+        (mp_pose.PoseLandmark.RIGHT_ELBOW, mp_pose.PoseLandmark.RIGHT_WRIST),
+        (mp_pose.PoseLandmark.LEFT_SHOULDER, mp_pose.PoseLandmark.LEFT_HIP),
+        (mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_HIP),
+        (mp_pose.PoseLandmark.LEFT_HIP, mp_pose.PoseLandmark.RIGHT_HIP),
+        (mp_pose.PoseLandmark.LEFT_HIP, mp_pose.PoseLandmark.LEFT_KNEE),
+        (mp_pose.PoseLandmark.LEFT_KNEE, mp_pose.PoseLandmark.LEFT_ANKLE),
+        (mp_pose.PoseLandmark.RIGHT_HIP, mp_pose.PoseLandmark.RIGHT_KNEE),
+        (mp_pose.PoseLandmark.RIGHT_KNEE, mp_pose.PoseLandmark.RIGHT_ANKLE),
+    ]
+
+    for connection in CONNECTIONS:
+        start = landmarks[connection[0].value]
+        end = landmarks[connection[1].value]
+        pt1 = (int(start.x * w), int(start.y * h))
+        pt2 = (int(end.x * w), int(end.y * h))
+        cv2.line(frame_bgr, pt1, pt2, color, 2)
+
+    for lm in landmarks:
+        pt = (int(lm.x * w), int(lm.y * h))
+        cv2.circle(frame_bgr, pt, 5, color, -1)
+
+    # Draw HUD
+    cv2.rectangle(frame_bgr, (0, 0), (w, 60), (20, 20, 20), -1)
+    cv2.putText(frame_bgr, f"Form: {score:.0f}/100", (15, 35),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+    cv2.putText(frame_bgr, fault or "GOOD FORM", (w - 300, 35),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+    _, buffer = cv2.imencode('.jpg', frame_bgr)
+    return StreamingResponse(io.BytesIO(buffer.tobytes()), media_type="image/jpeg")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

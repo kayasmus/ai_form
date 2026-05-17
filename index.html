@@ -9,16 +9,11 @@
     body { background: #0d0d0d; color: white; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
     h1 { margin-bottom: 1rem; font-size: 1.5rem; color: #1D9E75; }
     #container { position: relative; width: 640px; }
-    video, canvas { width: 640px; height: 480px; border-radius: 8px; display: block; }
-    canvas { position: absolute; top: 0; left: 0; }
-    #hud { position: absolute; top: 0; left: 0; width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.6); border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
-    #score-text { font-size: 1.2rem; font-weight: bold; }
-    #fault-text { font-size: 0.95rem; font-weight: bold; }
-    #bar-wrap { width: 200px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-top: 4px; }
-    #bar { height: 100%; width: 100%; background: #1D9E75; border-radius: 5px; transition: width 0.3s, background 0.3s; }
+    #output { width: 640px; height: 480px; border-radius: 8px; display: block; background: #111; }
     #btn { margin-top: 1rem; padding: 12px 32px; background: #1D9E75; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
     #btn:hover { background: #17856a; }
     #status { margin-top: 0.5rem; font-size: 0.85rem; color: #888; }
+    video, canvas { display: none; }
   </style>
 </head>
 <body>
@@ -26,13 +21,7 @@
   <div id="container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
-    <div id="hud">
-      <div>
-        <div id="score-text">Form: --/100</div>
-        <div id="bar-wrap"><div id="bar"></div></div>
-      </div>
-      <div id="fault-text">Press Start</div>
-    </div>
+    <img id="output" width="640" height="480" alt="Waiting for feed..."/>
   </div>
   <button id="btn" onclick="startAnalyzer()">Start Analyzer</button>
   <div id="status">Stand side-on to the camera for best results</div>
@@ -40,67 +29,46 @@
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const scoreText = document.getElementById('score-text');
-    const faultText = document.getElementById('fault-text');
-    const bar = document.getElementById('bar');
+    const img = document.getElementById('output');
     const status = document.getElementById('status');
     let analyzing = false;
     let intervalId = null;
 
-    function scoreColor(score) {
-      if (score >= 70) {
-        const t = (100 - score) / 30;
-        return `rgb(${Math.round(255*t)}, 255, 0)`;
-      } else {
-        const t = score / 70;
-        return `rgb(255, ${Math.round(255*t)}, 0)`;
-      }
-    }
-
     async function startAnalyzer() {
-      if (analyzing) return;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        canvas.width = 640;
-        canvas.height = 480;
-        analyzing = true;
-        document.getElementById('btn').textContent = 'Analyzing...';
-        document.getElementById('btn').disabled = true;
-        status.textContent = 'Analyzing — stand side-on for best results';
-        intervalId = setInterval(sendFrame, 300);
-      } catch(e) {
-        status.textContent = 'Camera access denied: ' + e.message;
-      }
+        if (analyzing) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            canvas.width = 640;
+            canvas.height = 480;
+            analyzing = true;
+            document.getElementById('btn').textContent = 'Analyzing...';
+            document.getElementById('btn').disabled = true;
+            status.textContent = 'Analyzing — stand side-on for best results';
+            intervalId = setInterval(sendFrame, 500);
+        } catch(e) {
+            status.textContent = 'Camera access denied: ' + e.message;
+        }
     }
 
     async function sendFrame() {
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, 640, 480);
-      canvas.toBlob(async (blob) => {
-        const form = new FormData();
-        form.append('file', blob, 'frame.jpg');
-        try {
-          const res = await fetch('http://localhost:8000/analyze', { method: 'POST', body: form });
-          const data = await res.json();
-          if (!data.detected) {
-            scoreText.textContent = 'No pose detected';
-            faultText.textContent = '';
-            bar.style.width = '0%';
-            return;
-          }
-          const score = data.score;
-          const color = scoreColor(score);
-          scoreText.textContent = `Form: ${score}/100`;
-          scoreText.style.color = color;
-          faultText.textContent = data.fault || 'GOOD FORM';
-          faultText.style.color = color;
-          bar.style.width = score + '%';
-          bar.style.background = color;
-        } catch(e) {
-          status.textContent = 'Error connecting to server';
-        }
-      }, 'image/jpeg', 0.8);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 640, 480);
+        canvas.toBlob(async (blob) => {
+            const form = new FormData();
+            form.append('file', blob, 'frame.jpg');
+            try {
+                const res = await fetch('http://localhost:8000/annotated', {
+                    method: 'POST',
+                    body: form
+                });
+                const blob_resp = await res.blob();
+                const url = URL.createObjectURL(blob_resp);
+                img.src = url;
+            } catch(e) {
+                status.textContent = 'Error connecting to server';
+            }
+        }, 'image/jpeg', 0.8);
     }
   </script>
 </body>
